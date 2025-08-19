@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends
-from config.config import get_settings, Settings
+from app.config.config import get_settings, Settings
+from models import AuthRequest, AuthResponse
+from app.services.auth_service import AuthService
 
 def create_application() -> FastAPI:
     settings = get_settings()
@@ -24,6 +26,13 @@ async def root(settings: Settings = Depends(get_settings)):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.post("/authenticate", response_model=AuthResponse)
+async def authenticate(auth_request: AuthRequest):
+    auth_service = AuthService()
+    await auth_service.authenticate_user(auth_request.username, auth_request.password)
+    access_token = await auth_service.create_access_token(auth_request.username)
+    return AuthResponse(access_token=access_token)
 
 if __name__ == "__main__":
     import uvicorn
