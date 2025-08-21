@@ -10,12 +10,25 @@ class Settings(BaseSettings):
     
     # Add more configuration items as needed
     API_PREFIX: str = "/api/v1"
+    SECRET_KEY: str = ""
+    API_KEY: str = ""
+    MUX_KEY_ID: str = ""
+    MUX_SECRET_KEY: str = ""
     
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 @lru_cache()
 def get_settings():
-    env = os.getenv("APP_ENV", "prod")
-    return Settings(_env_file=f".env.{env}")
+    # First, determine the environment. Pydantic-settings loads from environment variables first.
+    # So, if APP_ENV is set in the shell, it will be used to find the correct .env file.
+    # If not set, it will default to "prod" from the Settings class.
+    env = Settings().APP_ENV
+    
+    # Now, load the settings from the correct environment file.
+    return Settings(
+        _env_file=[".env", f".env.{env}"],
+        _env_file_encoding="utf-8"
+    )

@@ -1,7 +1,11 @@
-from fastapi import FastAPI, Depends
-from app.config.config import get_settings, Settings
-from models import AuthRequest, AuthResponse
-from app.services.auth_service import AuthService
+from fastapi import FastAPI, Request, Depends
+from app.config.config import get_settings
+from app.api.v1.api import api_router
+from app.api.dependencies import get_api_key
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 def create_application() -> FastAPI:
     settings = get_settings()
@@ -12,27 +16,19 @@ def create_application() -> FastAPI:
         version=settings.APP_VERSION,
         debug=settings.DEBUG
     )
+    app.include_router(api_router, prefix="/api/v1", dependencies=[Depends(get_api_key)])
     return app
 
 app = create_application()
 
-@app.get("/")
-async def root(settings: Settings = Depends(get_settings)):
-    return {
-        "message": "Welcome to Pageant Vision API",
-        "environment": settings.APP_ENV
-    }
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
-@app.post("/authenticate", response_model=AuthResponse)
-async def authenticate(auth_request: AuthRequest):
-    auth_service = AuthService()
-    await auth_service.authenticate_user(auth_request.username, auth_request.password)
-    access_token = await auth_service.create_access_token(auth_request.username)
-    return AuthResponse(access_token=access_token)
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    logger.info(f"Request to {request.url.path} processed in {process_time:.4f} seconds")
+    return response
 
 if __name__ == "__main__":
     import uvicorn
