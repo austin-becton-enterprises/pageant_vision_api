@@ -78,7 +78,7 @@ class Category(CategoryBase):
 # Access table models
 class AccessBase(BaseModel):
     user_id: int
-    category_id: Optional[str] = None
+    category_id: Optional[str] = None  # Should be str, not int
     video_id: Optional[str] = None
     grant_time: int  # Integer (Unix timestamp)
     purchase_id: int
@@ -95,7 +95,7 @@ class Access(AccessBase):
 # AccessRemoved table models
 class AccessRemovedBase(BaseModel):
     user_id: int
-    category_id: str
+    category_id: str  # Should be str
     video_id: str
     grant_time: int  # Integer (Unix timestamp)
     purchase_id: int

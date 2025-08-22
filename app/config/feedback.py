@@ -10,4 +10,10 @@
     "Consider using a .env loader (like python-dotenv) for local development.",
 
 
+    
+
+    NEW
+    Align SQLAlchemy model types and nullability with your SQL schema.
+    Align Pydantic schema types with your SQL schema.
+    Add missing Update schemas for all models.
 """

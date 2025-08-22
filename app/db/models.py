@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, BigInteger, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -26,9 +26,9 @@ class Access(Base):
     __tablename__ = 'access'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    category_id = Column(Integer, ForeignKey('categories.id'))
-    video_id = Column(String(50))
-    grant_time = Column(Integer, nullable=False)
+    category_id = Column(String(50))  # varchar(50), nullable
+    video_id = Column(String(50))     # varchar(50), nullable
+    grant_time = Column(DateTime, nullable=False)  # SQL: timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     purchase_id = Column(Integer, ForeignKey('purchases.id'), nullable=False)
     user = relationship("User", back_populates="accesses")
     category = relationship("Category", back_populates="accesses")
@@ -38,11 +38,11 @@ class AccessRemoved(Base):
     __tablename__ = 'access_removed'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    category_id = Column(Integer, ForeignKey('categories.id'), nullable=False)
+    category_id = Column(String(255), nullable=False)
     video_id = Column(String(255), nullable=False)
-    grant_time = Column(Integer, nullable=False)
+    grant_time = Column(String(255), nullable=False)  # varchar(255) NOT NULL
     purchase_id = Column(Integer, ForeignKey('purchases.id'), nullable=False)
-    remove_time = Column(Integer, nullable=False)
+    remove_time = Column(String(255), nullable=False)  # varchar(255) NOT NULL
     remove_reason = Column(String(255), nullable=False)
     user = relationship("User", back_populates="access_removed")
     category = relationship("Category", back_populates="access_removed")
@@ -51,22 +51,22 @@ class AccessRemoved(Base):
 class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True, nullable=False)
-    first_name = Column(String(255))
-    last_name = Column(String(255))
-    verified = Column(Integer, default=0)
-    token = Column(String(255))
-    pwtoken = Column(String(255))
-    pwtokenexpire = Column(String(255))
-    admin = Column(Integer, default=0)
+    email = Column(String(155), unique=True, nullable=False)
+    password = Column(String(255), nullable=False)
+    first_name = Column(String(60), nullable=False)
+    last_name = Column(String(60), nullable=False)
+    verified = Column(Integer, nullable=False, default=0)
+    token = Column(String(155))
+    pwtoken = Column(String(155))
+    pwtokenexpire = Column(String(25))
+    admin = Column(Integer, nullable=False, default=0)
     allaccess_exp = Column(Integer)
-    register_time = Column(Integer)
+    register_time = Column(Integer, nullable=False)
     stripe_customer_id = Column(String(255))
     pvtv_stripe_customer_id = Column(String(255))
     pvtv_sub_expire = Column(String(255))
     pvtv_db_user_id = Column(String(255))
-    session_version = Column(Integer, default=0)
-    password = Column(String(255))
+    session_version = Column(Integer, nullable=False, default=0)
     accesses = relationship("Access", back_populates="user", cascade="all, delete")
     access_removed = relationship("AccessRemoved", back_populates="user", cascade="all, delete")
     purchases = relationship("Purchase", back_populates="user", cascade="all, delete")
@@ -75,17 +75,17 @@ class Purchase(Base):
     __tablename__ = 'purchases'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    email = Column(String(255), nullable=False)
-    time = Column(Integer)
-    stripe_purchase_session_id = Column(String(255))
-    amount = Column(String(255))
-    cat_id = Column(String(255))
-    video_id = Column(String(255))
-    stripe_customer_link = Column(String(255))
-    charge_id = Column(String(255))
-    invoice_id = Column(String(255))
+    email = Column(String(55), nullable=False)
+    time = Column(Integer, nullable=False)
+    stripe_purchase_session_id = Column(String(255), nullable=False)
+    amount = Column(String(10), nullable=False)
+    cat_id = Column(String(5), nullable=False)
+    video_id = Column(String(5), nullable=False)
+    stripe_customer_link = Column(String(255), nullable=False)
+    charge_id = Column(String(255), nullable=False, unique=True)
+    invoice_id = Column(String(255), nullable=False)
     discount_applied = Column(String(255))
-    discount_id = Column(String(255))
+    discount_id = Column(String(40))
     user = relationship("User", back_populates="purchases")
     accesses = relationship("Access", back_populates="purchase", cascade="all, delete")
     access_removed = relationship("AccessRemoved", back_populates="purchase", cascade="all, delete")
@@ -100,17 +100,17 @@ class DLAccess(Base):
 class DLAccessLog(Base):
     __tablename__ = 'dl_access_log'
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String(255))
-    ip = Column(String(255))
-    url = Column(String(1024))
-    useragent = Column(String(1024))
+    user_id = Column(String(255), nullable=False)
+    ip = Column(String(255), nullable=False)
+    url = Column(Text, nullable=False)
+    useragent = Column(Text, nullable=False)
 
 class DLCodeLog(Base):
     __tablename__ = 'dl_code_log'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer)
     ip = Column(String(255))
-    useragent = Column(String(1024))
+    useragent = Column(Text)
     token = Column(Integer)
     email = Column(String(255))
     type = Column(String(255))
@@ -128,7 +128,7 @@ class DLFile(Base):
     filename = Column(String(255), nullable=False)
     group_id = Column(Integer, nullable=False)
     bucket_id = Column(String(255), nullable=False)
-    b2_file_id = Column(String(255), nullable=False)
+    b2_file_id = Column(Text, nullable=False)
     bucket_name = Column(String(255), nullable=False)
     size = Column(String(255), nullable=False)
 
@@ -138,7 +138,7 @@ class DLGroup(Base):
     name = Column(String(255), nullable=False)
     bucket_id = Column(String(255), nullable=False)
     bucket_name = Column(String(255), nullable=False)
-    status = Column(String(255), nullable=False)
+    status = Column(String(1), nullable=False, default='1')
 
 class DLLog(Base):
     __tablename__ = 'dl_log'
@@ -146,10 +146,10 @@ class DLLog(Base):
     user_id = Column(Integer, nullable=False)
     file_id = Column(Integer, nullable=False)
     entitlement_id = Column(Integer, nullable=False)
-    time = Column(String(255))
+    time = Column(DateTime, nullable=False)  # timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     ip = Column(String(255), nullable=False)
-    useragent = Column(String(1024), nullable=False)
-    url = Column(String(1024), nullable=False)
+    useragent = Column(Text, nullable=False)
+    url = Column(Text, nullable=False)
 
 class DLUser(Base):
     __tablename__ = 'dl_users'
@@ -185,38 +185,38 @@ class ForceRefresh(Base):
 class LimitedAccess(Base):
     __tablename__ = 'limited_access'
     id = Column(Integer, primary_key=True, index=True)
-    token = Column(String(255), nullable=False)
-    expiration = Column(String(255), nullable=False)
+    token = Column(String(55), nullable=False)
+    expiration = Column(String(10), nullable=False)
     expires_on = Column(Integer)
     ip = Column(String(255))
-    content = Column(String(255), nullable=False)
-    note = Column(String(255))
-    tv = Column(String(8), default="false")
+    content = Column(Text, nullable=False)
+    note = Column(Text)
+    tv = Column(String(15), nullable=False, default='false')
 
 class LiveEvent(Base):
     __tablename__ = 'live_events'
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
-    embed = Column(String(1024))
-    embed2 = Column(String(1024))
-    embed3 = Column(String(1024))
+    embed = Column(Text)
+    embed2 = Column(String(255))
+    embed3 = Column(String(255))
     forceShow = Column(Integer, default=2)
-    start = Column(String(255), nullable=False)
-    end = Column(String(255), nullable=False)
+    start = Column(String(55), nullable=False)
+    end = Column(String(55), nullable=False)
     category = Column(Integer, nullable=False)
-    cost = Column(String(255), nullable=False)
-    location = Column(String(255), nullable=False)
-    timezone = Column(String(255))
+    cost = Column(String(10), nullable=False)
+    location = Column(String(55), nullable=False)
+    timezone = Column(String(55))
     pvtv = Column(String(255))
     stream_key = Column(String(255))
     stream_key2 = Column(String(255))
     muxStreamID = Column(String(255))
     vote_category = Column(Integer)
     vote_end = Column(Integer)
-    viewable_date = Column(Integer, default=1)
-    drm = Column(Integer, default=0)
-    replay = Column(String(255))
-    sub_category = Column(Integer, default=0)
+    viewable_date = Column(Integer, nullable=False, default=1)
+    drm = Column(Integer, nullable=False, default=0)
+    replay = Column(String(8))
+    sub_category = Column(Integer, nullable=False, default=0)
     thumb = Column(String(255))
 
 class LoginLog(Base):
@@ -225,24 +225,24 @@ class LoginLog(Base):
     username = Column(String(255), nullable=False)
     ip = Column(String(255), nullable=False)
     time = Column(Integer, nullable=False)
-    success = Column(String(8), nullable=False)
+    success = Column(String(100), nullable=False)
     user_token = Column(String(255))
 
 class Package(Base):
     __tablename__ = 'packages'
     id = Column(Integer, primary_key=True, index=True)
-    package = Column(String(255), nullable=False)
+    package = Column(String(55), nullable=False)
     package_group = Column(Integer, nullable=False)
     price = Column(Integer, nullable=False)
-    subtext = Column(String(255), nullable=False)
-    subtextstyle = Column(String(255), nullable=False)
+    subtext = Column(Text, nullable=False)
+    subtextstyle = Column(String(55), nullable=False)
     square_link = Column(String(255), nullable=False)
     point1 = Column(String(255))
     point2 = Column(String(255))
     point3 = Column(String(255))
     point4 = Column(String(255))
-    button = Column(String(255))
-    available = Column(Integer, default=1)
+    button = Column(String(55))
+    available = Column(Integer, nullable=False, default=1)
     image = Column(String(255))
 
 class PackageClick(Base):
@@ -250,7 +250,7 @@ class PackageClick(Base):
     id = Column(Integer, primary_key=True, index=True)
     link_id = Column(Integer, nullable=False)
     ip = Column(String(255), nullable=False)
-    time = Column(Integer)
+    time = Column(String(255))  # varchar(255) DEFAULT NULL
     referrer = Column(String(255))
     browser = Column(String(255), nullable=False)
 
@@ -258,11 +258,11 @@ class PackageGroup(Base):
     __tablename__ = 'package_groups'
     id = Column(Integer, primary_key=True, index=True)
     pageant_cat_id = Column(Integer, nullable=False)
-    promo = Column(String(255))
+    promo = Column(Text)
     promo_end = Column(Integer)
     expire = Column(Integer)
-    delivery_timeframe = Column(String(255), nullable=False)
-    license = Column(String(255), nullable=False)
+    delivery_timeframe = Column(String(255), nullable=False, default='Files will be delivered (or shipped, if applicable) within approximately 2-8 weeks of finals or ordering (whichever is latest). Please ensure your personal information entered at time of ordering is correct to avoid delays.')
+    license = Column(String(255), nullable=False, default='All video files are licensed for personal use only. Please see our full license terms at <a href="https://pageant.vision/license" class="text-decoration-underline text-light" target="_blank">pageant.vision/license</a>.')
 
 class RecentlyAired(Base):
     __tablename__ = 'recently_aired'
@@ -277,9 +277,9 @@ class RecentlyAiredClick(Base):
     id = Column(Integer, primary_key=True, index=True)
     link_id = Column(Integer, nullable=False)
     ip = Column(String(255), nullable=False)
-    date = Column(Integer, nullable=False)
+    date = Column(String(255), nullable=False)
     referrer = Column(String(255))
-    browser = Column(String(255))
+    browser = Column(Text)
 
 class SubCategory(Base):
     __tablename__ = 'sub_categories'
@@ -294,7 +294,7 @@ class UserToken(Base):
     token = Column(String(255), nullable=False)
     user_id = Column(Integer, nullable=False)
     set_time = Column(Integer, nullable=False)
-    user_agent = Column(String(255), nullable=False)
+    user_agent = Column(Text, nullable=False)
     ip_address = Column(String(255), nullable=False)
 
 class Vote(Base):
@@ -304,14 +304,14 @@ class Vote(Base):
     video_id = Column(Integer, nullable=False)
     contestant_id = Column(Integer, nullable=False)
     ip_address = Column(String(255), nullable=False)
-    user_agent = Column(String(255), nullable=False)
+    user_agent = Column(Text, nullable=False)
     time = Column(Integer, nullable=False)
 
 class VoteCategory(Base):
     __tablename__ = 'vote_categories'
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
-    disabled = Column(Integer, default=0)
+    disabled = Column(Integer, nullable=False, default=0)
 
 class VoteContestant(Base):
     __tablename__ = 'vote_contestants'
@@ -330,7 +330,7 @@ class VoteDivision(Base):
 class Waitlist(Base):
     __tablename__ = 'waitlist'
     id = Column(Integer, primary_key=True, index=True)
-    package_id = Column(String(255), nullable=False)
+    package_id = Column(String(25), nullable=False)
     email = Column(String(255), nullable=False)
     time = Column(Integer, nullable=False)
     ip = Column(String(255), nullable=False)
@@ -338,19 +338,19 @@ class Waitlist(Base):
 class WatchLog(Base):
     __tablename__ = 'watch_log'
     id = Column(Integer, primary_key=True, index=True)
-    vid_id = Column(String(255), nullable=False)
+    vid_id = Column(String(55), nullable=False)
     user_id = Column(Integer, nullable=False)
     time = Column(Integer, nullable=False)
     ip = Column(String(255), nullable=False)
-    useragent = Column(String(1024), nullable=False)
+    useragent = Column(Text, nullable=False)
     user_token = Column(String(255))
 
 class WatchLogPing(Base):
     __tablename__ = 'watch_log_ping'
     id = Column(Integer, primary_key=True, index=True)
-    vid_id = Column(String(255), nullable=False)
+    vid_id = Column(String(55), nullable=False)
     user_id = Column(Integer, nullable=False)
     time = Column(Integer, nullable=False)
     ip = Column(String(255), nullable=False)
-    useragent = Column(String(1024), nullable=False)
+    useragent = Column(Text, nullable=False)
     user_token = Column(String(255))

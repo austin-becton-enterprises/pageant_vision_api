@@ -5,6 +5,8 @@ from .models import (
 )
 from . import schemas
 
+# Make sure you define UserUpdate, PurchaseUpdate, CategoryUpdate, AccessUpdate, AccessRemovedUpdate, DLAccessUpdate, etc. in your schemas.py
+
 # USERS CRUD
 
 def create_user(db: Session, user: schemas.UserCreate):
