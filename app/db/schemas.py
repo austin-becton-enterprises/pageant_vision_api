@@ -28,6 +28,23 @@ class User(UserBase):
     class Config:
         orm_mode = True
 
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    verified: Optional[int] = None
+    token: Optional[str] = None
+    pwtoken: Optional[str] = None
+    pwtokenexpire: Optional[str] = None
+    admin: Optional[int] = None
+    allaccess_exp: Optional[int] = None
+    register_time: Optional[int] = None
+    stripe_customer_id: Optional[str] = None
+    pvtv_stripe_customer_id: Optional[str] = None
+    pvtv_sub_expire: Optional[str] = None
+    pvtv_db_user_id: Optional[str] = None
+    session_version: Optional[int] = None
+
 # Purchases table models
 class PurchaseBase(BaseModel):
     user_id: int
@@ -52,6 +69,20 @@ class Purchase(PurchaseBase):
     class Config:
         orm_mode = True
 
+class PurchaseUpdate(BaseModel):
+    user_id: Optional[int] = None
+    email: Optional[EmailStr] = None
+    time: Optional[int] = None
+    stripe_purchase_session_id: Optional[str] = None
+    amount: Optional[str] = None
+    cat_id: Optional[str] = None
+    video_id: Optional[str] = None
+    stripe_customer_link: Optional[str] = None
+    charge_id: Optional[str] = None
+    invoice_id: Optional[str] = None
+    discount_applied: Optional[str] = None
+    discount_id: Optional[str] = None
+
 # Categories table models
 class CategoryBase(BaseModel):
     name: str
@@ -75,6 +106,19 @@ class Category(CategoryBase):
     class Config:
         orm_mode = True
 
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    group_cost: Optional[str] = None
+    startdate: Optional[str] = None
+    pvtv_cat: Optional[int] = None
+    num_contestants: Optional[int] = None
+    net_percentage: Optional[str] = None
+    dir_split: Optional[str] = None
+    logo: Optional[str] = None
+    group_only: Optional[str] = None
+    background_image: Optional[str] = None
+    location: Optional[str] = None
+
 # Access table models
 class AccessBase(BaseModel):
     user_id: int
@@ -91,6 +135,13 @@ class Access(AccessBase):
 
     class Config:
         orm_mode = True
+
+class AccessUpdate(BaseModel):
+    user_id: Optional[int] = None
+    category_id: Optional[str] = None
+    video_id: Optional[str] = None
+    grant_time: Optional[int] = None
+    purchase_id: Optional[int] = None
 
 # AccessRemoved table models
 class AccessRemovedBase(BaseModel):
@@ -111,6 +162,15 @@ class AccessRemoved(AccessRemovedBase):
     class Config:
         orm_mode = True
 
+class AccessRemovedUpdate(BaseModel):
+    user_id: Optional[int] = None
+    category_id: Optional[str] = None
+    video_id: Optional[str] = None
+    grant_time: Optional[int] = None
+    purchase_id: Optional[int] = None
+    remove_time: Optional[int] = None
+    remove_reason: Optional[str] = None
+
 # DL Access
 class DLAccessBase(BaseModel):
     uid: int
@@ -124,6 +184,11 @@ class DLAccess(DLAccessBase):
     id: int
     class Config:
         orm_mode = True
+
+class DLAccessUpdate(BaseModel):
+    uid: Optional[int] = None
+    token: Optional[int] = None
+    expiry: Optional[str] = None
 
 # DL Access Log
 class DLAccessLogBase(BaseModel):

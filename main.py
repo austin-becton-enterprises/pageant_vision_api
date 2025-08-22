@@ -4,8 +4,9 @@ from app.api.v1.api import api_router
 from app.api.dependencies import get_api_key
 import logging
 import time
-import os
 from pythonjsonlogger import jsonlogger
+from app.db.session import get_db
+import os
 
 logger = logging.getLogger()
 settings = get_settings()
@@ -19,7 +20,6 @@ if not settings.DEBUG:
 else:
     logging.basicConfig(level=logging.INFO)
 
-
 def create_application() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
@@ -31,6 +31,12 @@ def create_application() -> FastAPI:
     return app
 
 app = create_application()
+
+# --- Add this block to override get_db with dummy DB if enabled ---
+if os.getenv("USE_DUMMY_DB", "0") == "1":
+    from app.db.dummy_db import get_dummy_db
+    app.dependency_overrides[get_db] = get_dummy_db
+# --- end block ---
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
