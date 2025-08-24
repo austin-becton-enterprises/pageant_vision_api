@@ -1,19 +1,78 @@
-from fastapi import HTTPException, status
-from .jwt_service import JWTService
+from models import AuthRequest
+from .logging_service import LoggingService, LOGGING_VALUE_SUCCESS, LOGGING_VALUE_INCORRECT_PASSWORD, LOGGING_VALUE_USER_NOT_EXIST, LOGGING_VALUE_NO_USERNAME_FAIL, LOGGING_VALUE_NO_PASSWORD_FAIL, LOGGING_VALUE_USER_NOT_VERIFIED
+from .person_service import PersonService
+from services.error_service import NetworkingExceptions as error
+from .database_service import DatabaseService
 
 class AuthService:
+
     def __init__(self):
-        self.jwt_service = JWTService()
+        self.person_service = PersonService()
+        self.logging_service = LoggingService(logger=None)  # Pass actual logger if available
 
-    async def authenticate_user(self, username: str, password: str) -> bool:
-        # TODO: Replace with actual authentication logic
-        if username == "user" and password == "password":
-            return True
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    #######################
+    # Login Process
+    #######################
+    async def authenticate_user(self, auth_request: AuthRequest) -> (str | None):
 
-    async def create_access_token(self, username: str) -> str:
-        return await self.jwt_service.create_auth_token(username)
+    ##    #STEP 1 - Validate has required fields
+        if not auth_request.email or not auth_request.password:
+            if not auth_request.email:
+                self.logging_service.log_no_username(auth_request)
+            elif not auth_request.password:
+                self.logging_service.log_no_password(auth_request)
+            raise error.bad_credentials()
+            #reCAPTCHA token - come back later for that
+            #LOGGING_VALUE_CAPTCHA_FAIL
+
+    ##    #STEP 2 - Get user from database
+        matched_person = DatabaseService.get_user(with_email=auth_request.email, and_password=auth_request.password)
+        if not matched_person:
+            self.logging_service.log_user_not_exist(auth_request)
+            raise error.bad_credentials()
+        
+    ##    #STEP 3 - Validate user password and verified status
+        if not matched_person.is_verified():
+            self.logging_service.log_user_not_verified(auth_request, user_id=matched_person.user_id() if matched_person else None)
+            raise error.account_not_verified()
+        if not self.password_is_valid(self, auth_request.password, matched_person.data.specificMetaTagValue(forKey="password")):
+            self.logging_service.log_incorrect_password(auth_request, user_id=matched_person.user_id() if matched_person else None)
+            raise error.bad_credentials()
+        
+    ##    #STEP 4 - Create JWT auth Token + increment session version
+        from .jwt_service import JWTService as token_service
+        new_token = token_service.create_auth_token(matched_person.email(), expires_delta_seconds=3600)
+        matched_person = DatabaseService.update_session_version_and_token(user_id=matched_person.user_id(), token=new_token)
+        
+    ##    #STEP 5 - Log auth/login event
+        self.logging_service.log_success(auth_request, user_id=matched_person.user_id() if matched_person else None)
+        return matched_person
+
+    #######################
+    # Helper Functions
+    #######################
+    def password_is_valid(plain_password: str, hashed_password_from_db: str) -> bool:
+        import bcrypt
+        #Verifies a plain password against a PHP bcrypt hash from the database.
+        # bcrypt requires bytes
+        if isinstance(plain_password, str):
+            plain_password = plain_password.encode('utf-8')
+        if isinstance(hashed_password_from_db, str):
+            hashed_password_from_db = hashed_password_from_db.encode('utf-8')
+        return bcrypt.checkpw(plain_password, hashed_password_from_db)
+
+
+    #######################
+    # NON-LOGIN FUNCTIONS
+    #######################
+    @staticmethod
+    def validate_token(token: str) -> str:
+        # Validates the JWT token and returns the user email (sub)
+        from .jwt_service import JWTService
+        return JWTService.verify_auth_token(token)
+
+    def logout():
+        #client calls this on logout 
+        #bump session version?
+        pass
+

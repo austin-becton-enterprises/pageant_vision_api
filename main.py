@@ -1,7 +1,6 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request
 from app.config.config import get_settings
 from app.api.v1.api import api_router
-from app.api.dependencies import get_api_key
 import logging
 import time
 from pythonjsonlogger import jsonlogger
@@ -27,16 +26,16 @@ def create_application() -> FastAPI:
         version=settings.APP_VERSION,
         debug=settings.DEBUG
     )
-    app.include_router(api_router, prefix="/api/v1", dependencies=[Depends(get_api_key)])
+    # Remove global dependency on get_api_key here:
+    app.include_router(api_router, prefix="/api/v1")
     return app
 
 app = create_application()
 
-# --- Add this block to override get_db with dummy DB if enabled ---
+# override get_db with dummy DB if enabled ---
 if os.getenv("USE_DUMMY_DB", "0") == "1":
-    from app.db.dummy_db import get_dummy_db
+    from app.db.testing.dummy_db import get_dummy_db
     app.dependency_overrides[get_db] = get_dummy_db
-# --- end block ---
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):

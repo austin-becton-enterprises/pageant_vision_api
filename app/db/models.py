@@ -26,7 +26,7 @@ class Access(Base):
     __tablename__ = 'access'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    category_id = Column(String(50))  # varchar(50), nullable
+    category_id = Column(Integer, ForeignKey('categories.id'))  # <-- changed to Integer + ForeignKey
     video_id = Column(String(50))     # varchar(50), nullable
     grant_time = Column(DateTime, nullable=False)  # SQL: timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
     purchase_id = Column(Integer, ForeignKey('purchases.id'), nullable=False)
@@ -38,7 +38,7 @@ class AccessRemoved(Base):
     __tablename__ = 'access_removed'
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    category_id = Column(String(255), nullable=False)
+    category_id = Column(Integer, ForeignKey('categories.id'), nullable=False)  # <-- changed to Integer + ForeignKey
     video_id = Column(String(255), nullable=False)
     grant_time = Column(String(255), nullable=False)  # varchar(255) NOT NULL
     purchase_id = Column(Integer, ForeignKey('purchases.id'), nullable=False)

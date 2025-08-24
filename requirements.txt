@@ -6,3 +6,4 @@ gunicorn
 pydantic-settings
 sqlalchemy
 mysql-connector-python
+bcrypt

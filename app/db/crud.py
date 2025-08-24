@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import text, update
 from .models import (
     User, Purchase, Category, Access, AccessRemoved, DLAccess,
     # ...add all other models as you migrate them...
@@ -39,6 +40,20 @@ def delete_user(db: Session, user_id: int):
     db.delete(db_user)
     db.commit()
     return db_user
+
+def update_session_version_and_token(db: Session, user_id: int, token: str = None):
+    update_values = {"session_version": User.session_version + 1}
+    if token is not None:
+        update_values["token"] = token
+    stmt = (
+        update(User)
+        .where(User.id == user_id)
+        .values(**update_values)
+    )
+    db.execute(stmt)
+    db.commit()
+    updated_user = db.query(User).filter(User.id == user_id).first()
+    return updated_user
 
 # PURCHASES CRUD
 

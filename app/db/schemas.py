@@ -122,7 +122,7 @@ class CategoryUpdate(BaseModel):
 # Access table models
 class AccessBase(BaseModel):
     user_id: int
-    category_id: Optional[str] = None  # Should be str, not int
+    category_id: Optional[int] = None  # Should be int, not str
     video_id: Optional[str] = None
     grant_time: int  # Integer (Unix timestamp)
     purchase_id: int
@@ -138,7 +138,7 @@ class Access(AccessBase):
 
 class AccessUpdate(BaseModel):
     user_id: Optional[int] = None
-    category_id: Optional[str] = None
+    category_id: Optional[int] = None  # Should be int, not str
     video_id: Optional[str] = None
     grant_time: Optional[int] = None
     purchase_id: Optional[int] = None
@@ -146,7 +146,7 @@ class AccessUpdate(BaseModel):
 # AccessRemoved table models
 class AccessRemovedBase(BaseModel):
     user_id: int
-    category_id: str  # Should be str
+    category_id: int  # Should be int, not str
     video_id: str
     grant_time: int  # Integer (Unix timestamp)
     purchase_id: int
@@ -164,7 +164,7 @@ class AccessRemoved(AccessRemovedBase):
 
 class AccessRemovedUpdate(BaseModel):
     user_id: Optional[int] = None
-    category_id: Optional[str] = None
+    category_id: Optional[int] = None  # Should be int, not str
     video_id: Optional[str] = None
     grant_time: Optional[int] = None
     purchase_id: Optional[int] = None

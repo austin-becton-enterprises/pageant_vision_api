@@ -1,8 +1,17 @@
-from fastapi import APIRouter
-
+from fastapi import APIRouter, Depends
+from app.api.dependencies import get_api_key, get_current_user
 from app.api.v1.endpoints import auth, videos_v2, system
 
 api_router = APIRouter()
+
+#UNSECURED ENDPOINTS
 api_router.include_router(system.router, tags=["system"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
-api_router.include_router(videos_v2.router, prefix="/video", tags=["video"])
+
+#SECURED ENDPOINTS
+api_router.include_router(
+    videos_v2.router,
+    prefix="/video",
+    tags=["video"],
+    dependencies=[Depends(get_api_key), Depends(get_current_user)]
+)
