@@ -7,9 +7,9 @@ class ContentService:
         return f"https://image.mux.com/{mux_playback_id}/thumbnail.jpg?token=SIGNED_JWT"
 
     @staticmethod
-    def get_my_videos(user_id: int, db):
-        purchases = DatabaseService.get_purchases_for_user(db, user_id)
-
+    def get_my_videos(user_id: int):
+        purchases = DatabaseService.get_purchases_for_user(user_id)
+        print("get my videos called")
         category_ids = set()
         video_ids = set()
         for purchase in purchases:
@@ -19,8 +19,8 @@ class ContentService:
                 video_ids.add(purchase.video_id)
 
         videos = []
-        videos += DatabaseService.get_videos_by_category_ids(db, category_ids)
-        videos += DatabaseService.get_videos_by_video_ids(db, video_ids)
+        videos += DatabaseService.get_videos_by_category_ids(category_ids)
+        videos += DatabaseService.get_videos_by_video_ids(video_ids)
 
         # Remove duplicates by id
         seen = set()
@@ -29,7 +29,7 @@ class ContentService:
             if v.id not in seen:
                 unique_videos.append(v)
                 seen.add(v.id)
-
+                
         children = []
         for v in unique_videos:
             meta = {

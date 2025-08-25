@@ -1,7 +1,7 @@
 from hax_telegraph.model.database_object.wrapper import DatabaseObjectWrapper
 from fastapi import Request
 from models import AuthRequest
-from db.models import User
+from ...db.models import User
 
 META_TAG_KEY_TOKEN = "token"
 META_TAG_KEY_EMAIL = "email"
@@ -17,7 +17,7 @@ class PVPerson:
         self.data = data
     
     @staticmethod
-    def fromUserModel(user_model: User) -> ('PVPerson' | None):
+    def fromUserModel(user_model: User) -> "PVPerson | None":
         if user_model is None:
             return None
         verified_status = META_TAG_VALUE_VERIFIED if user_model.verified else None
@@ -25,7 +25,8 @@ class PVPerson:
         data_wrapper.set_or_append(incoming_meta_tags={
             META_TAG_KEY_TOKEN: user_model.token,
             META_TAG_KEY_EMAIL: user_model.email,
-            META_TAG_KEY_VERIFIED: verified_status
+            META_TAG_KEY_VERIFIED: verified_status,
+            META_TAG_KEY_USER_ID: str(user_model.id)
         })
         return PVPerson(data=data_wrapper)
 
@@ -42,8 +43,5 @@ class PVPerson:
         return self.data.specificMetaTagValue(forKey=META_TAG_KEY_EMAIL)
     
     def user_id(self) -> str:
-        int_version = self.data.specificMetaTag(forKey=META_TAG_KEY_USER_ID)
+        int_version = self.data.specificMetaTagValue(forKey=META_TAG_KEY_USER_ID)
         return str(int_version)
-    
-    
-    

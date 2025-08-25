@@ -40,13 +40,15 @@ class JWTService:
         return encode(to_encode, private_key, algorithm="RS256", headers=headers)
 
     @staticmethod
-    def verify_auth_token(token: str) -> str:
+    def verify_auth_token(token: str, expected_username: Optional[str] = None) -> str:
         settings = get_settings()
         try:
             payload = decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             username = payload.get("sub")
             if not username:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+            if expected_username is not None and username != expected_username:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token does not match user")
             return username
         except jwt_exceptions.ExpiredSignatureError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")

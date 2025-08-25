@@ -11,18 +11,18 @@ class LoggingService:
     def __init__(self, logger):
         self.logger = logger
 
-    def login_attempt(self, auth_request, log_value: str, user_id: int = None):
+    def login_attempt(self, auth_request, login_log: str, user_id: int = None):
         email = getattr(auth_request, "email", None)
         ip_address = getattr(auth_request, "ip_address", None)
         user_agent = getattr(auth_request, "user_agent", None)
         if self.logger:
-            self.logger.info(f"Login attempt for {email}: {log_value}")
+            self.logger.info(f"Login attempt for {email}: {login_log}")
         else:
-            print(f"Login attempt for {email}: {log_value}")
+            print(f"Login attempt for {email}: {login_log}")
         from .database_service import DatabaseService
         DatabaseService.add_log(
             email=email,
-            log_value=log_value,
+            success=login_log,
             ip_address=ip_address,
             user_agent=user_agent,
             user_id=user_id
