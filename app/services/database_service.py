@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from app.db import session
 from app.db.models import User
 from ..models.hax_models.pv_person import PVPerson
+from ..models.hax_models.pv_purchase import PVPurchase
 from app.db import crud
 import logging
 
@@ -63,14 +64,45 @@ class DatabaseService:
             db.close()
 
     @staticmethod
-    def get_purchases_for_user(user_id: int):
+    def get_purchases_for_user(user_id: int) -> list:
         db = session.SessionLocal()
         try:
             from app.db.models import Purchase
-            results = db.query(Purchase).filter(Purchase.user_id == user_id).all()
-            # Make sure to call as_dict() if you want dicts
-            # return [purchase.as_dict() for purchase in results]
-            return results
+            #results = db.query(Purchase).filter(Purchase.user_id == user_id).all()
+            all_purchases = db.query(Purchase).all()
+            # Filter to unique (cat_id, video_id) combos
+            unique = {}
+            for purchase in all_purchases:
+                key = (purchase.cat_id, purchase.video_id)
+                if key not in unique:
+                    unique[key] = purchase
+            unique_purchases = list(unique.values())
+            # Convert to PVPurchase objects
+            #return [PVPurchase.fromPurchaseModel(purchase) for purchase in results if purchase is not None]
+            return [PVPurchase.fromPurchaseModel(purchase) for purchase in unique_purchases if purchase is not None]
+        finally:
+            db.close()
+
+    @staticmethod
+    def get_accesses_for_user(user_id: int) -> list:
+        db = session.SessionLocal()
+        try:
+            from app.db.models import Access
+            # Fetch all access records for the user
+            all_accesses = db.query(Access).filter(Access.user_id == user_id).all()
+            # Filter to unique (cat_id, video_id) combos
+            unique = {}
+            for access in all_accesses:
+                key = (access.cat_id, access.video_id)
+                if key not in unique:
+                    unique[key] = access
+            unique_accesses = list(unique.values())
+            # Convert to PVAccess objects if available, else return raw models
+            try:
+                from ..models.hax_models.pv_access import PVAccess
+                return [PVAccess.fromAccessModel(access) for access in unique_accesses if access is not None]
+            except ImportError:
+                return unique_accesses
         finally:
             db.close()
 

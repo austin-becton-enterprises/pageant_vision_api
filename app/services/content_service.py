@@ -8,15 +8,21 @@ class ContentService:
 
     @staticmethod
     def get_my_videos(user_id: int):
-        purchases = DatabaseService.get_purchases_for_user(user_id)
+        # Use access objects instead of purchases
+        accesses = DatabaseService.get_accesses_for_user(user_id)
         print("get my videos called")
         category_ids = set()
         video_ids = set()
-        for purchase in purchases:
-            if purchase.cat_id:
-                category_ids.add(purchase.cat_id)
-            if purchase.video_id:
-                video_ids.add(purchase.video_id)
+        for access in accesses:
+            cat_id = access.cat_id() if access else None
+            video_id = access.video_id() if access else None
+            print("cat + video: ")
+            print(cat_id)
+            print(video_id)
+            if cat_id:
+                category_ids.add(cat_id)
+            if video_id:
+                video_ids.add(video_id)
 
         videos = []
         videos += DatabaseService.get_videos_by_category_ids(category_ids)
@@ -29,7 +35,6 @@ class ContentService:
             if v.id not in seen:
                 unique_videos.append(v)
                 seen.add(v.id)
-                
         children = []
         for v in unique_videos:
             meta = {
