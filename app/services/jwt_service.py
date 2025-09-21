@@ -8,7 +8,7 @@ import time
 class JWTService:
     
     @staticmethod
-    async def create_auth_token(user_email: str, expires_delta_seconds: Optional[int] = None) -> str:
+    async def create_auth_token(user_email: str, expires_delta_seconds: Optional[int] = None):
         settings = get_settings()
         
         expires = time.time() + (expires_delta_seconds or 24 * 60 * 60)
@@ -17,7 +17,8 @@ class JWTService:
             "exp": expires,
             "type": "auth"
         }
-        return encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
+        token = encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
+        return token, expires
 
     @staticmethod
     async def create_mux_playback_token(playback_id: str) -> str:

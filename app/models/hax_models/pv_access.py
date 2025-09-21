@@ -17,7 +17,7 @@ class PVAccess:
         data_wrapper = DatabaseObjectWrapper(jsonDict={})
         data_wrapper.set_or_append(incoming_meta_tags={
             META_TAG_KEY_VIDEO_ID: access_model.video_id,
-            META_TAG_KEY_CAT_ID: access_model.cat_id
+            META_TAG_KEY_CAT_ID: access_model.category_id  # <-- changed from cat_id to category_id
         })
         return PVAccess(data=data_wrapper)
 

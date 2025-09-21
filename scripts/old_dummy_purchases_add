@@ -1,0 +1,387 @@
+import os
+import sys
+from datetime import datetime
+from sqlalchemy import create_engine, and_
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import func
+from dotenv import load_dotenv
+
+# Load environment variables (adjust path if needed)
+env_path = os.path.join(os.path.dirname(__file__), '../.env.staging')
+load_dotenv(dotenv_path=env_path)
+
+# DB connection
+MYSQL_USER = os.getenv("MYSQL_USER")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
+MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
+MYSQL_DB = os.getenv("MYSQL_DB")
+DATABASE_URL = (
+    f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+)
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Import models
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from app.db.models import User, LiveEvent, Purchase, Access
+
+# --- CONFIGURATION ---
+USER_EMAIL = os.getenv("DUMMY_USER_EMAIL", "austincbecton@gmail.com")  # Change as needed
+DUMMY_PURCHASE_PREFIX = "DUMMY_TEST_PURCHASE"
+DUMMY_ACCESS_PREFIX = "DUMMY_TEST_ACCESS"
+NOW = datetime.utcnow()
+
+def get_user(session, email):
+    return session.query(User).filter(User.email == email).first()
+
+def get_upcoming_events(session):
+    # Assumes LiveEvent.end is a string (convert to datetime if needed)
+    events = session.query(LiveEvent).filter(
+        func.str_to_date(LiveEvent.end, '%Y-%m-%d %H:%i:%s') > NOW
+    ).all()
+    return events
+
+def purchase_exists(session, user_id, cat_id, video_id):
+    return session.query(Purchase).filter(
+        Purchase.user_id == user_id,
+        Purchase.cat_id == str(cat_id),
+        Purchase.video_id == str(video_id),
+        Purchase.charge_id.like(f"{DUMMY_PURCHASE_PREFIX}%")
+    ).first() is not None
+
+def access_exists(session, user_id, category_id, video_id):
+    return session.query(Access).filter(
+        Access.user_id == user_id,
+        Access.category_id == category_id,
+        Access.video_id == str(video_id)
+    ).first() is not None
+
+def create_dummy_purchase(session, user, event):
+    # Minimal required fields for Purchase
+    dummy_purchase = Purchase(
+        user_id=user.id,
+        email=user.email,
+        time=int(datetime.utcnow().timestamp()),
+        stripe_purchase_session_id=f"{DUMMY_PURCHASE_PREFIX}_{event.id}",
+        amount="0.00",
+        cat_id=str(event.category),
+        video_id=str(event.id),
+        stripe_customer_link="https://dummy.link",
+        charge_id=f"{DUMMY_PURCHASE_PREFIX}_{user.id}_{event.id}",
+        invoice_id=f"{DUMMY_PURCHASE_PREFIX}_INV_{user.id}_{event.id}",
+        discount_applied=None,
+        discount_id=None
+    )
+    try:
+        session.add(dummy_purchase)
+        session.commit()
+        session.refresh(dummy_purchase)
+        print(f"DEBUG: Created purchase {dummy_purchase.id} for event {event.id}")
+        return dummy_purchase
+    except Exception as e:
+        print(f"ERROR creating purchase for event {event.id}: {e}")
+        session.rollback()
+        return None
+
+def create_dummy_access(session, user, event, purchase):
+    from sqlalchemy.exc import SQLAlchemyError
+    try:
+        dummy_access = Access(
+            user_id=user.id,
+            category_id=event.category,
+            video_id=str(event.id),
+            grant_time=datetime.utcnow(),
+            purchase_id=purchase.id
+        )
+        session.add(dummy_access)
+        session.commit()
+        session.refresh(dummy_access)
+        print(f"DEBUG: Created access {dummy_access.id} for event {event.id}")
+        return dummy_access
+    except SQLAlchemyError as e:
+        print(f"ERROR creating access for event {event.id}: {e}")
+        session.rollback()
+        return None
+
+def cleanup_dummy_data(session, user, full=False):
+    from app.db.models import Purchase, Access
+    if full:
+        print("Performing FULL cleanup: removing ALL purchases and accesses for this user.")
+        accesses = session.query(Access).filter(Access.user_id == user.id).all()
+        purchases = session.query(Purchase).filter(Purchase.user_id == user.id).all()
+    else:
+        accesses = session.query(Access).join(Purchase, Access.purchase_id == Purchase.id).filter(
+            Access.user_id == user.id,
+            Purchase.charge_id.like(f"{DUMMY_PURCHASE_PREFIX}%")
+        ).all()
+        purchases = session.query(Purchase).filter(
+            Purchase.user_id == user.id,
+            Purchase.charge_id.like(f"{DUMMY_PURCHASE_PREFIX}%")
+        ).all()
+    print(f"Before cleanup: {session.query(Purchase).filter(Purchase.user_id == user.id).count()} purchases, {session.query(Access).filter(Access.user_id == user.id).count()} accesses")
+    for access in accesses:
+        session.delete(access)
+    for purchase in purchases:
+        session.delete(purchase)
+    session.commit()
+    print(f"Removed {len(accesses)} accesses and {len(purchases)} purchases for user {user.email}")
+    print(f"After cleanup: {session.query(Purchase).filter(Purchase.user_id == user.id).count()} purchases, {session.query(Access).filter(Access.user_id == user.id).count()} accesses")
+
+def print_user_purchases_and_accesses(session, user):
+    from app.db.models import Purchase, Access
+    purchases = session.query(Purchase).filter(Purchase.user_id == user.id).all()
+    accesses = session.query(Access).filter(Access.user_id == user.id).all()
+    print("\n=== Purchases for user ===")
+    for p in purchases:
+        print(f"Purchase id={p.id} cat_id={p.cat_id} video_id={p.video_id} charge_id={p.charge_id} time={p.time}")
+    print("\n=== Accesses for user ===")
+    for a in accesses:
+        print(f"Access id={a.id} category_id={a.category_id} video_id={a.video_id} grant_time={a.grant_time} purchase_id={a.purchase_id}")
+
+def add_dummy_event(session):
+    from app.db.models import LiveEvent, Category
+    from random import randint
+    now = datetime.utcnow()
+    future = now.replace(year=now.year + 1)
+    # Print available categories
+    categories = session.query(Category).all()
+    print("Available categories in DB:")
+    for cat in categories:
+        print(f"  id={cat.id} name={cat.name}")
+    if not categories:
+        print("  (No categories found. You must have at least one category to add an event.)")
+        return
+    category_id = categories[0].id  # Use the first available category
+    print(f"Using category_id={category_id} for dummy event.")
+    dummy_event = LiveEvent(
+        name="Dummy Future Event",
+        embed=None,
+        embed2=None,
+        embed3=None,
+        forceShow=2,
+        start=now.strftime('%Y-%m-%d %H:%M:%S'),
+        end=future.strftime('%Y-%m-%d %H:%M:%S'),
+        category=category_id,
+        cost="0.00",
+        location="Test Location",
+        timezone="UTC",
+        pvtv=None,
+        stream_key=None,
+        stream_key2=None,
+        muxStreamID=None,
+        vote_category=None,
+        vote_end=None,
+        viewable_date=1,
+        drm=0,
+        replay=None,
+        sub_category=0,
+        thumb=None
+    )
+    try:
+        session.add(dummy_event)
+        session.commit()
+        print(f"Added dummy event with id={dummy_event.id}, end={dummy_event.end}, category={category_id}")
+    except Exception as e:
+        print(f"ERROR adding dummy event: {e}")
+        session.rollback()
+        return
+    # Print all events in DB
+    events = session.query(LiveEvent).all()
+    print("Current events in DB:")
+    for event in events:
+        print(f"  id={event.id} name={event.name} end={event.end} category={event.category}")
+
+import random
+
+def add_multiple_dummy_categories_and_events(session, num=5):
+    from app.db.models import LiveEvent, Category
+    now = datetime.utcnow()
+    future = now.replace(year=now.year + 1)
+
+    print(f"Categories before: {session.query(Category).count()}")
+    print(f"Events before: {session.query(LiveEvent).count()}")
+
+    created_categories = []
+    created_events = []
+    for i in range(num):
+        suffix = f"{i+1}_{random.randint(1000,9999)}"
+        cat = Category(
+            name=f"Dummy Category {suffix}",
+            description=f"Auto-generated dummy category {suffix}"
+        )
+        session.add(cat)
+        created_categories.append(cat)
+    session.commit()
+
+    for i, cat in enumerate(created_categories):
+        suffix = f"{i+1}_{random.randint(1000,9999)}"
+        event = LiveEvent(
+            name=f"Dummy Event {suffix}",
+            embed=None,
+            embed2=None,
+            embed3=None,
+            forceShow=2,
+            start=now.strftime('%Y-%m-%d %H:%M:%S'),
+            end=future.strftime('%Y-%m-%d %H:%M:%S'),
+            category=cat.id,
+            cost="0.00",
+            location="Test Location",
+            timezone="UTC",
+            pvtv=None,
+            stream_key=None,
+            stream_key2=None,
+            muxStreamID=None,
+            vote_category=None,
+            vote_end=None,
+            viewable_date=1,
+            drm=0,
+            replay=None,
+            sub_category=0,
+            thumb=None
+        )
+        session.add(event)
+        created_events.append(event)
+    session.commit()
+
+    print(f"Categories after: {session.query(Category).count()}")
+    print(f"Events after: {session.query(LiveEvent).count()}")
+
+    print("All categories in DB after creation:")
+    for cat in session.query(Category).all():
+        print(f"  id={cat.id} name={cat.name}")
+
+    print("All events in DB after creation:")
+    for event in session.query(LiveEvent).all():
+        print(f"  id={event.id} name={event.name} end={event.end} category={event.category}")
+
+    print(f"Created {len(created_categories)} dummy categories and {len(created_events)} dummy events.")
+    for cat, event in zip(created_categories, created_events):
+        print(f"Category id={cat.id} name={cat.name} -> Event id={event.id} name={event.name} category={event.category}")
+
+    return created_categories, created_events
+
+def add_dummy_accesses_for_user(session, user, events):
+    inserted = 0
+    for event in events:
+        print(f"Processing event id={event.id} category={event.category}")
+        if purchase_exists(session, user.id, event.category, event.id):
+            print(f"  Skipping: Purchase already exists for user {user.id}, event {event.id}, category {event.category}")
+            continue
+        purchase = create_dummy_purchase(session, user, event)
+        if not purchase:
+            print(f"  Skipping: Failed to create purchase for event {event.id}")
+            continue
+        if access_exists(session, user.id, event.category, event.id):
+            print(f"  Skipping: Access already exists for user {user.id}, event {event.id}, category {event.category}")
+            continue
+        access = create_dummy_access(session, user, event, purchase)
+        if access:
+            print(f"  Inserted dummy purchase/access for event {event.id} (category {event.category})")
+            inserted += 1
+        else:
+            print(f"  Skipping: Failed to create access for event {event.id}")
+    print(f"Inserted {inserted} dummy purchase/access records for user {user.email}")
+
+def add_all_dummy_data(session, user, num=5, force_cleanup=False, full_cleanup=False):
+    if force_cleanup:
+        print("Cleaning up existing dummy data for user before adding new dummy data...")
+        cleanup_dummy_data(session, user, full=full_cleanup)
+    cats, events = add_multiple_dummy_categories_and_events(session, num=num)
+    print(f"Creating purchases/accesses for user {user.email} for new events:")
+    for event in events:
+        print(f"  Event id={event.id} name={event.name} category={event.category}")
+        purchase = create_dummy_purchase(session, user, event)
+        if not purchase:
+            print(f"    Failed to create purchase for event {event.id}")
+            continue
+        access = create_dummy_access(session, user, event, purchase)
+        if not access:
+            print(f"    Failed to create access for event {event.id}")
+        else:
+            print(f"    Created purchase {purchase.id} and access {access.id} for event {event.id}")
+    print_user_purchases_and_accesses(session, user)
+
+def main():
+    cleanup = "--cleanup" in sys.argv
+    add_event = "--add-dummy-event" in sys.argv
+    add_bulk = "--add-multiple-dummy-events" in sys.argv
+    add_all = "--add-all-dummy-data" in sys.argv
+    force = "--force" in sys.argv
+    full_cleanup = "--full-cleanup" in sys.argv
+    session = SessionLocal()
+    try:
+        if add_all:
+            num = 5
+            for arg in sys.argv:
+                if arg.startswith("--num="):
+                    try:
+                        num = int(arg.split("=")[1])
+                    except Exception:
+                        pass
+            user = get_user(session, USER_EMAIL)
+            if not user:
+                print(f"User with email {USER_EMAIL} not found.")
+                return
+            add_all_dummy_data(session, user, num=num, force_cleanup=force, full_cleanup=full_cleanup)
+            return
+        if add_bulk:
+            num = 5
+            for arg in sys.argv:
+                if arg.startswith("--num="):
+                    try:
+                        num = int(arg.split("=")[1])
+                    except Exception:
+                        pass
+            add_multiple_dummy_categories_and_events(session, num=num)
+            return
+        if add_event:
+            add_dummy_event(session)
+            return
+        user = get_user(session, USER_EMAIL)
+        if not user:
+            print(f"User with email {USER_EMAIL} not found.")
+            return
+        print(f"DEBUG: Using user id={user.id} email={user.email}")
+        if cleanup:
+            cleanup_dummy_data(session, user)
+            print_user_purchases_and_accesses(session, user)
+            return
+        events = get_upcoming_events(session)
+        print(f"DEBUG: Found {len(events)} upcoming events")
+        for event in events:
+            print(f"DEBUG: Event id={event.id} name={getattr(event, 'name', None)} category={event.category} end={event.end}")
+        if not events:
+            print("No upcoming events found.")
+            print_user_purchases_and_accesses(session, user)
+            return
+
+        inserted = 0
+        for event in events:
+            print(f"DEBUG: Processing event id={event.id} category={event.category}")
+            if purchase_exists(session, user.id, event.category, event.id):
+                print(f"Purchase already exists for event {event.id} (category {event.category})")
+                continue
+            purchase = create_dummy_purchase(session, user, event)
+            if not purchase:
+                print(f"DEBUG: Failed to create purchase for event {event.id}")
+                continue
+            if access_exists(session, user.id, event.category, event.id):
+                print(f"Access already exists for event {event.id} (category {event.category})")
+                continue
+            access = create_dummy_access(session, user, event, purchase)
+            if access:
+                print(f"Inserted dummy purchase/access for event {event.id} (category {event.category})")
+                inserted += 1
+            else:
+                print(f"DEBUG: Failed to create access for event {event.id}")
+        print(f"Inserted {inserted} dummy purchase/access records for user {user.email}")
+
+        # Print all purchases and accesses for this user for verification
+        print_user_purchases_and_accesses(session, user)
+    finally:
+        session.close()
+
+if __name__ == "__main__":
+    main()

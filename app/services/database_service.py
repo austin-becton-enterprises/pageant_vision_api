@@ -1,3 +1,4 @@
+import sqlalchemy
 from sqlalchemy.orm import Session
 from app.db import session
 from app.db.models import User
@@ -73,7 +74,7 @@ class DatabaseService:
             # Filter to unique (cat_id, video_id) combos
             unique = {}
             for purchase in all_purchases:
-                key = (purchase.cat_id, purchase.video_id)
+                key = (purchase.cat_id, purchase.video_id)  # <-- use cat_id here
                 if key not in unique:
                     unique[key] = purchase
             unique_purchases = list(unique.values())
@@ -90,30 +91,25 @@ class DatabaseService:
             from app.db.models import Access
             # Fetch all access records for the user
             all_accesses = db.query(Access).filter(Access.user_id == user_id).all()
-            # Filter to unique (cat_id, video_id) combos
+            # Filter to unique (category_id, video_id) combos
             unique = {}
             for access in all_accesses:
-                key = (access.cat_id, access.video_id)
+                key = (access.category_id, access.video_id)  # <-- changed from cat_id to category_id
                 if key not in unique:
                     unique[key] = access
             unique_accesses = list(unique.values())
-            # Convert to PVAccess objects if available, else return raw models
-            try:
-                from ..models.hax_models.pv_access import PVAccess
-                return [PVAccess.fromAccessModel(access) for access in unique_accesses if access is not None]
-            except ImportError:
-                return unique_accesses
+            return unique_accesses
         finally:
             db.close()
 
     @staticmethod
-    def get_videos_by_category_ids(category_ids: set):
-        from app.db.models import LiveEvent
+    def get_categories_by_category_ids(category_ids: set):
+        from app.db.models import Category
         db = session.SessionLocal()
         try:
             if not category_ids:
                 return []
-            return db.query(LiveEvent).filter(LiveEvent.category.in_(category_ids)).all()
+            return db.query(Category).filter(Category.id.in_(category_ids)).all()
         finally:
             db.close()
 
@@ -125,5 +121,26 @@ class DatabaseService:
             if not video_ids:
                 return []
             return db.query(LiveEvent).filter(LiveEvent.id.in_(video_ids)).all()
+        finally:
+            db.close()
+
+    @staticmethod
+    def get_future_categories():
+        from app.db.models import Category
+        db = session.SessionLocal()
+        try:
+            return db.query(Category).all()
+        finally:
+            db.close()
+
+    @staticmethod
+    def get_future_videos():
+        from app.db.models import LiveEvent
+        from datetime import datetime, timedelta, timezone
+        db = session.SessionLocal()
+        try:
+            #one_week_ago = datetime.now(timezone.utc) - timedelta(weeks=1)
+            #return db.query(LiveEvent).filter(LiveEvent.viewable_date >= one_week_ago).all()
+            return db.query(LiveEvent).all()
         finally:
             db.close()

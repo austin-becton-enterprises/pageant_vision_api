@@ -10,6 +10,7 @@ class AuthRequest(BaseModel):
 
 class AuthResponse(BaseModel):
     access_token: str
+    token_expiration: str
     token_type: str = "bearer"
     email: str
     

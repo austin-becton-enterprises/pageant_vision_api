@@ -50,16 +50,21 @@ class AuthService:
         
     ##    #STEP 4 - Create JWT auth Token + increment session version
         from .jwt_service import JWTService as token_service
-        new_token = await token_service.create_auth_token(matched_person.email(), expires_delta_seconds=3600)
+        new_token, expires = await token_service.create_auth_token(matched_person.email(), expires_delta_seconds=86400)
         user_id = matched_person.user_id()
         if user_id is None:
             logging.error(f"User ID is None for matched_person: {matched_person}")
             raise error.bad_credentials()
         matched_person = DatabaseService.update_session_version_and_token(user_id=user_id, token=new_token)
         matched_person = PVPerson.fromUserModel(matched_person)
+    
     ##    #STEP 5 - Log auth/login event
         self.logging_service.log_success(auth_request, user_id=matched_person.user_id() if matched_person else None)
-        return AuthResponse(access_token=new_token, email=matched_person.email())  # Return the JWT token instead of the user object
+        return AuthResponse(
+            access_token=new_token,
+            token_expiration=str(int(expires)),
+            email=matched_person.email()
+        )
 
     #######################
     # Helper Functions
@@ -88,6 +93,14 @@ class AuthService:
         else:
             raise error.invalid_token()
 
+    @staticmethod
+    def validate_token_only(email: str, token: str) -> bool:
+        from .jwt_service import JWTService
+        if JWTService.verify_auth_token(token, expected_username=email) is not None:
+            print("Invalid Auth Token")
+            return True
+        return False
+    
     def logout():
         #client calls this on logout 
         #bump session version?
