@@ -16,7 +16,7 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 # Copy requirements file first to leverage Docker's layer caching.
 # If requirements.txt doesn't change, this layer won't be rebuilt.
 COPY requirements.txt .
-
+COPY hax_packages ./hax_packages
 # Install dependencies as root to ensure they are in the system PATH
 RUN pip install --no-cache-dir -r requirements.txt
 

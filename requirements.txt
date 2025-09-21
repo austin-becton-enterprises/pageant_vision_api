@@ -4,6 +4,8 @@ python-json-logger
 python-dotenv
 gunicorn
 pydantic-settings
+pydantic[email]
 sqlalchemy
 mysql-connector-python
 bcrypt
+./hax_packages/hax_telegraph-1.2.0-py3-none-any.whl
